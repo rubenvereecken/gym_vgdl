@@ -3,7 +3,7 @@ from gym_vgdl.vgdl_env import VGDLEnv
 import os
 
 # Location of sample games
-DATA_DIR = os.path.join( os.path.dirname(__file__), 'vgdl', 'sample_games') 
+DATA_DIR = os.path.join( os.path.dirname(__file__), 'vgdl', 'sample_games')
 
 sample_games = [
     'aliens',
@@ -60,6 +60,7 @@ def register_sample_games():
                     'obs_type': obs_type,
                     'notable_sprites': classes[game],
                     'notable_resources': resources[game],
+                    # Use 24 (size of sprites) to render the full sprites
                     'block_size': 5 if obs_type == 'image' else 10
                 },
                 timestep_limit=1000,

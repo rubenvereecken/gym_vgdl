@@ -1,7 +1,8 @@
+import os
 from collections import OrderedDict
 import gym
 from gym import spaces
-from .vgdl import core
+import vgdl
 import pygame
 import numpy as np
 from .list_space import list_space
@@ -24,34 +25,35 @@ class VGDLEnv(gym.Env):
         self._obs_type = obs_type
         self.viewer = None
         self.game_args = kwargs
-        
+
         # Load game description and level description
         if game_file is not None:
             with open (game_file, "r") as myfile:
                 game_desc = myfile.read()
             with open (level_file, "r") as myfile:
                 level_desc = myfile.read()
+            self.level_name = os.path.basename(level_file).split('.')[0]
             self.loadGame(game_desc, level_desc)
-        
-         
+
+
     def loadGame(self, game_desc, level_desc, **kwargs):
-    
+
         self.game_desc = game_desc
         self.level_desc = level_desc
         self.game_args.update(kwargs)
-                
+
         # Need to build a sample level to get the available actions and screensize....
-        self.game = core.VGDLParser().parseGame(self.game_desc, **self.game_args)
+        self.game = vgdl.VGDLParser().parseGame(self.game_desc, **self.game_args)
         self.game.buildLevel(self.level_desc)
-        
+
         self.score_last = self.game.score
 
         # Set action space and observation space
         self._action_set = OrderedDict(self.game.getPossibleActions())
         self.action_space = spaces.Discrete(len(self._action_set))
-        
+
         self.screen_width, self.screen_height = self.game.screensize
-        
+
         if self._obs_type == 'image':
             self.observation_space = spaces.Box(low=0, high=255,
                     shape=(self.screen_height, self.screen_width, 3) )
@@ -67,18 +69,9 @@ class VGDLEnv(gym.Env):
 
         # Keep a Surface for drawing on (screen)
         # and a bigger one that is actually rendered (display)
-        self.zoom = 25 // self.game.block_size
-        self.display_size = np.array(self.game.screensize) * self.zoom
-        self.display = pygame.display.set_mode(self.display_size, 0, 32)
-        self.screen = pygame.Surface(self.game.screensize)
-        self.game.screen = self.screen
-        self.game.screen.fill((0, 0, 0))
+        self.game.initScreen(headless=False, zoom=25 // self.game.block_size, title=self.level_name)
 
-        # Not sure what the background is needed for, it's not drawn
-        #TODO: get rid of this
-        self.game.background = pygame.Surface(self.game.screensize)
-        
-        
+
     @property
     def _n_actions(self):
         return len(self._action_set)
@@ -100,9 +93,9 @@ class VGDLEnv(gym.Env):
         pygame.display.update()
 
     def _get_image(self):
-        self._draw_screen()
+        # self._draw_screen()
         return np.flipud(np.rot90(pygame.surfarray.array3d(
-            self.screen).astype(np.uint8)))
+            self.game.screen).astype(np.uint8)))
 
     def _get_obs(self):
         if self._obs_type == 'image':
@@ -135,8 +128,8 @@ class VGDLEnv(gym.Env):
             img = self._get_image()
             return img
         elif mode == 'human':
-            # For now, pygame is always used for drawing
-            self._update_display()
+            # This happens inside game.tick
+            # self._update_display()
             return True
 
     def close(self):
