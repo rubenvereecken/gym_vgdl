@@ -107,7 +107,7 @@ class VGDLEnv(gym.Env):
 
 
     def step(self, a):
-        self.game.tick(self._action_keys[a], True)
+        self.game.tick(self._action_keys[a])
         state = self._get_obs()
         reward = self.game.score - self.score_last
         self.score_last = self.game.score
