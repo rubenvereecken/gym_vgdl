@@ -64,12 +64,13 @@ class VGDLEnv(gym.Env):
             self.observation_space = list_space( spaces.Box(low=-100, high=100,
                     shape=(self.game.lenObservation(),) ) )
         elif self._obs_type == 'features':
+            from .state import AvatarOrientedObserver
             self.observation_space = spaces.Box(low=0, high=100,
                     shape=(self.game.lenFeatures(),) )
+            self.observer = AvatarOrientedObserver(self.game)
 
-        # Keep a Surface for drawing on (screen)
-        # and a bigger one that is actually rendered (display)
-        self.game.initScreen(headless=False, zoom=25 // self.game.block_size, title=self.level_name)
+
+        self.screen_initialised = False
 
 
     @property
@@ -100,13 +101,12 @@ class VGDLEnv(gym.Env):
     def _get_obs(self):
         if self._obs_type == 'image':
             return self._get_image()
-        elif self._obs_type == 'objects':
-            return self.game.getObservation()
-        elif self._obs_type == 'features':
-            return self.game.getFeatures()
-
+        else:
+            return self.observer.get_observation().as_array()
 
     def step(self, a):
+        if not self.screen_initialised:
+            raise Exception('Please call `render` at least once for initialisation')
         self.game.tick(self._action_keys[a])
         state = self._get_obs()
         reward = self.game.score - self.score_last
@@ -122,6 +122,12 @@ class VGDLEnv(gym.Env):
         return state
 
     def render(self, mode='human', close=False):
+        headless = mode != 'human'
+        # Only initialise the screen once, vgdl will update from here on
+        if not self.screen_initialised:
+            self.screen_initialised = True
+            self.game.initScreen(headless, zoom=25 // self.game.block_size, title=self.level_name)
+
         if close:
             pygame.display.quit()
         if mode == 'rgb_array':
