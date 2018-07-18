@@ -25,6 +25,7 @@ class VGDLEnv(gym.Env):
         self._obs_type = obs_type
         self.viewer = None
         self.game_args = kwargs
+        self.notable_sprites = kwargs.get('notable_sprites', None)
 
         # Load game description and level description
         if game_file is not None:
@@ -58,19 +59,19 @@ class VGDLEnv(gym.Env):
             self.observation_space = spaces.Box(low=0, high=255,
                     shape=(self.screen_height, self.screen_width, 3) )
         elif self._obs_type == 'objects':
-            # An objects observation consists of a list of observations,
-            # one for each sprite (including walls).
-            # An observation is [y, x, orient_y, orient_x, *class_one_hot, *resources]
+            from .state import NotableSpritesObserver
+            self.observer = NotableSpritesObserver(self.game, self.notable_sprites)
             self.observation_space = list_space( spaces.Box(low=-100, high=100,
-                    shape=(self.game.lenObservation(),) ) )
+                    shape=self.observer.observation_shape) )
         elif self._obs_type == 'features':
             from .state import AvatarOrientedObserver
-            self.observation_space = spaces.Box(low=0, high=100,
-                    shape=(self.game.lenFeatures(),) )
             self.observer = AvatarOrientedObserver(self.game)
+            self.observation_space = spaces.Box(low=0, high=100,
+                    shape=self.observer.observation_shape)
 
 
-        self.screen_initialised = False
+        # For rendering purposes
+        self.mode_initialised = None
 
 
     @property
@@ -105,7 +106,7 @@ class VGDLEnv(gym.Env):
             return self.observer.get_observation().as_array()
 
     def step(self, a):
-        if not self.screen_initialised:
+        if not self.mode_initialised:
             raise Exception('Please call `render` at least once for initialisation')
         self.game.tick(self._action_keys[a])
         state = self._get_obs()
@@ -124,8 +125,8 @@ class VGDLEnv(gym.Env):
     def render(self, mode='human', close=False):
         headless = mode != 'human'
         # Only initialise the screen once, vgdl will update from here on
-        if not self.screen_initialised:
-            self.screen_initialised = True
+        if not self.mode_initialised == mode:
+            self.mode_initialised = mode
             self.game.initScreen(headless, zoom=25 // self.game.block_size, title=self.level_name)
 
         if close:
