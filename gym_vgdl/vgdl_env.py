@@ -3,6 +3,7 @@ from collections import OrderedDict
 import gym
 from gym import spaces
 import vgdl
+from vgdl.state import StateObserver
 import pygame
 import numpy as np
 from .list_space import list_space
@@ -19,7 +20,6 @@ class VGDLEnv(gym.Env):
                  level_file = None,
                  obs_type='image',
                  **kwargs):
-
 
         # Variables
         self._obs_type = obs_type
@@ -68,7 +68,13 @@ class VGDLEnv(gym.Env):
             self.observer = AvatarOrientedObserver(self.game)
             self.observation_space = spaces.Box(low=0, high=100,
                     shape=self.observer.observation_shape)
-
+        elif isinstance(self._obs_type, type) and issubclass(self._obs_type, StateObserver):
+            self.observer = self._obs_type(self.game)
+            # TODO vgdl.StateObserver should report some space
+            self.observation_space = spaces.Box(low=0, high=100,
+                                        shape=self.observer.observation_shape)
+        else:
+            raise Exception('Unknown obs_type `{}`'.format(self._obs_type))
 
         # For rendering purposes
         self.mode_initialised = None
